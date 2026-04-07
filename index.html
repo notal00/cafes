@@ -374,7 +374,7 @@ iconSize: [s,s], iconAnchor: [s/2,s/2],
 function addMarker(c) {
 if (!c.lat || !c.lng) return;
 const m = L.marker([c.lat, c.lng], { icon: mkIcon(false) }).addTo(map);
-m.bindPopup(`<div class="p-name">${c.name}</div> ${c.score != null ?`<div class="p-score">${c.score} / 5</div>`: ''} ${c.note ?`<div class="p-note">${c.note}</div>`: ''}`, { maxWidth: 200, closeButton: false });
+m.bindPopup(`<div class="p-name">${c.name}</div> ${c.score != null ?`<div class="p-score">${c.score} / 5</div>`: ``} ${c.note ?`<div class="p-note">${c.note}</div>`: ''}`, { maxWidth: 200, closeButton: false });
 m.on(‘click’, () => highlightCard(c.id));
 markers[c.id] = { marker: m, cafe: c };
 }
@@ -463,14 +463,41 @@ renderList(q ? allCafes.filter(c =>
 // ── Init ─────────────────────────────────────
 async function init() {
 try {
-const data = await fetchCafes();
-allCafes = data;
-document.getElementById(‘count-pill’).textContent = `${data.length} 家`;
-renderList(data);
-data.forEach(addMarker);
+const res = await fetch(
+`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc`,
+{ headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
+);
+const raw = await res.text();
+
+```
+if (!res.ok) {
+  document.getElementById('list-panel').innerHTML =
+    `<div class="state"><h3>加载失败 (${res.status})</h3><p style="font-size:11px;word-break:break-all;max-width:400px;margin:0 auto">${raw}</p></div>`;
+  return;
+}
+
+const data = JSON.parse(raw);
+
+if (!Array.isArray(data) || data.length === 0) {
+  document.getElementById('list-panel').innerHTML =
+    `<div class="state"><h3>暂无数据</h3><p>表中没有记录，或 RLS 未开放 SELECT 权限</p></div>`;
+  return;
+}
+
+// Support both "alpha_label" (underscore) and "alpha-label" (hyphen)
+allCafes = data.map(c => ({
+  ...c,
+  alpha_label: c['alpha_label'] || c['alpha-label'] || null,
+}));
+
+document.getElementById('count-pill').textContent = `${allCafes.length} 家`;
+renderList(allCafes);
+allCafes.forEach(addMarker);
+```
+
 } catch(err) {
 document.getElementById(‘list-panel’).innerHTML =
-`<div class="state"><h3>加载失败</h3><p>${err.message}</p></div>`;
+`<div class="state"><h3>网络错误</h3><p>${err.message}</p></div>`;
 }
 }
 

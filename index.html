@@ -1,3 +1,6 @@
+
+
+
 <!DOCTYPE html>
 
 <html lang="zh-CN">
@@ -333,12 +336,12 @@
 
 </div>
 <script>
-// ── 1. 配置信息 (确保全是直引号) ──────────────────────
+
+<script>
 const SUPABASE_URL  = 'https://zkpctzxyqpiiqxvnmauo.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprcGN0enh5cXBpaXF4dm5tYXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNDkxNDAsImV4cCI6MjA5MDkyNTE0MH0.Z7WdneCs_vJOblWho1neuMLI86h1FrdNqi6N2-DI4ZQ';
 const TABLE_NAME    = 'cafes';
 
-// ── 2. 地图初始化 ──────────────────────────────────
 const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 const accentColor = isDark ? '#e05050' : '#c0392b';
 const bgColor = isDark ? '#0f0f0f' : '#ffffff';
@@ -353,18 +356,16 @@ const markers = {};
 let activeId = null;
 let allCafes = [];
 
-// ── 3. 核心功能函数 ────────────────────────────────
 function mkIcon(active) {
-  const s = active ? 13 : 9;
+  const s = active ? 14 : 8; // 激活状态变大
   return L.divIcon({
     className: '',
-    html: `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${accentColor};border:2px solid ${bgColor};box-shadow:0 1px 4px rgba(0,0,0,.25);"></div>`,
+    html: `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${accentColor};border:2px solid ${bgColor};box-shadow:0 1px 4px rgba(0,0,0,.3);transition:all .3s ease;"></div>`,
     iconSize: [s, s], iconAnchor: [s/2, s/2]
   });
 }
 
 function dotRow(score) {
-  // 5分制逻辑：直接取整
   const n = Math.round(score || 0);
   return Array.from({length: 5}, (_, i) => `<div class="dot${i < n ? ' on' : ''}"></div>`).join('');
 }
@@ -374,11 +375,11 @@ function showError(msg) {
   if (panel) panel.innerHTML = `<div class="state"><h3>出错了</h3><p style="font-size:11px;">${msg}</p></div>`;
 }
 
-// ── 4. 渲染与交互 ──────────────────────────────────
 function addMarker(c) {
   if (!c.lat || !c.lng) return;
   const m = L.marker([c.lat, c.lng], { icon: mkIcon(false) }).addTo(map);
   m.bindPopup(`<div class="p-name zh">${c.name}</div>${c.score != null ? `<div class="p-score">${c.score} / 5</div>` : ''}`, { closeButton: false });
+  // 点击地图上的点，触发高亮逻辑
   m.on('click', () => onCardClick(c.id));
   markers[c.id] = m;
 }
@@ -420,34 +421,36 @@ function renderList(cafes) {
 function onCardClick(id) {
   const c = allCafes.find(x => String(x.id) === String(id));
   if (!c) return;
+  
+  // 1. 卡片样式切换
   document.querySelectorAll('.card').forEach(el => el.classList.remove('active'));
   const el = document.querySelector(`.card[data-id="${id}"]`);
   if (el) {
     el.classList.add('active');
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
-  if (c.lat && c.lng) {
-    map.flyTo([c.lat, c.lng], 15);
-    if (activeId && markers[activeId]) markers[activeId].setIcon(mkIcon(false));
-    if (markers[id]) {
-      markers[id].setIcon(mkIcon(true));
-      markers[id].openPopup();
-    }
-    activeId = id;
-    document.getElementById('map-foot').innerHTML = `<div class="zh"><strong>${c.name}</strong><br><small>${c.location || ''}</small></div>`;
+
+  // 2. 地图标点切换大小
+  if (activeId && markers[activeId]) {
+    markers[activeId].setIcon(mkIcon(false));
   }
+  if (markers[id]) {
+    markers[id].setIcon(mkIcon(true));
+    markers[id].openPopup();
+    map.flyTo([c.lat, c.lng], 15, { duration: 0.5 });
+  }
+  
+  activeId = id;
+  document.getElementById('map-foot').innerHTML = `<div class="zh"><strong>${c.name}</strong><br><small>${c.location || ''}</small></div>`;
 }
 
-// ── 5. 数据初始化 ──────────────────────────────────
 async function init() {
   try {
     const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc`;
     const res = await fetch(url, {
       headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
     });
-
     if (!res.ok) throw new Error('网络请求失败');
-    
     const data = await res.json();
     allCafes = data;
     document.getElementById('count-pill').textContent = `${allCafes.length} 家`;
@@ -464,7 +467,7 @@ document.getElementById('search').addEventListener('input', e => {
 });
 
 init();
-
+</script>
 
 
 

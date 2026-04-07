@@ -374,7 +374,7 @@ iconSize: [s,s], iconAnchor: [s/2,s/2],
 function addMarker(c) {
 if (!c.lat || !c.lng) return;
 const m = L.marker([c.lat, c.lng], { icon: mkIcon(false) }).addTo(map);
-m.bindPopup(`<div class="p-name">${c.name}</div> ${c.score != null ?`<div class="p-score">${c.score} / 10</div>`: ''} ${c.note ?`<div class="p-note">${c.note}</div>`: ''}`, { maxWidth: 200, closeButton: false });
+m.bindPopup(`<div class="p-name">${c.name}</div> ${c.score != null ?`<div class="p-score">${c.score} / 5</div>`: ''} ${c.note ?`<div class="p-note">${c.note}</div>`: ''}`, { maxWidth: 200, closeButton: false });
 m.on(‘click’, () => highlightCard(c.id));
 markers[c.id] = { marker: m, cafe: c };
 }
@@ -406,7 +406,7 @@ let allCafes = [];
 function hasChinese(s) { return /[\u4e00-\u9fff]/.test(s); }
 
 function dotRow(score) {
-const n = Math.round((score||0) / 2);
+const n = Math.round(score || 0);
 return Array.from({length:5},(_,i)=>`<div class="dot${i<n?' on':''}"></div>`).join(’’);
 }
 
@@ -436,7 +436,7 @@ html += `<div class="card" data-id="${c.id}" onclick="onCardClick('${c.id}')"> <
 <circle cx="12" cy="9" r="2.5"/>
 </svg>${c.location}
 </div>`: ''} ${c.note ?`<div class="card-note">${c.note}</div>`: ''} </div> ${c.score != null ?`<div class="card-right">
-<div class="score-val">${c.score}<sub>/10</sub></div>
+<div class="score-val">${c.score}<sub>/5</sub></div>
 <div class="dots">${dotRow(c.score)}</div>
 </div>` : ''} </div>`;
 });

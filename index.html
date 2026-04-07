@@ -464,7 +464,7 @@ renderList(q ? allCafes.filter(c =>
 async function init() {
 try {
 const res = await fetch(
-`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc`,
+`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc&apikey=${SUPABASE_ANON}`,
 { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
 );
 const raw = await res.text();

@@ -14,8 +14,8 @@
 
   <!-- Leaflet -->
 
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <style>
     /* ── Tokens ── */
@@ -271,6 +271,10 @@
 
 </head>
 <body>
+<script>window.onerror = function(msg, src, line, col, err) {
+  var el = document.getElementById('list-panel');
+  if (el) el.innerHTML = '<div class="state"><h3>JS错误</h3><p>' + msg + ' @ ' + src + ':' + line + '</p></div>';
+};</script>
 <div class="app">
 
   <header>
@@ -461,30 +465,63 @@ renderList(q ? allCafes.filter(c =>
 });
 
 // ── Init ─────────────────────────────────────
+function showError(msg) {
+document.getElementById(‘list-panel’).innerHTML =
+`<div class="state"><h3>出错了</h3><p style="font-size:11px;word-break:break-all;max-width:400px;margin:6px auto 0">${msg}</p></div>`;
+}
+
 async function init() {
+// 8 second timeout
+const controller = new AbortController();
+const timer = setTimeout(() => controller.abort(), 8000);
+
 try {
-const res = await fetch(
-`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc&apikey=${SUPABASE_ANON}`,
-{ headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
-);
-const raw = await res.text();
+const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc&apikey=${SUPABASE_ANON}`;
+let res;
+try {
+res = await fetch(url, {
+signal: controller.signal,
+headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` }
+});
+} catch(fetchErr) {
+showError(`fetch 失败: ${fetchErr.message}`);
+return;
+} finally {
+clearTimeout(timer);
+}
 
 ```
+let raw;
+try {
+  raw = await res.text();
+} catch(textErr) {
+  showError(`读取响应失败: ${textErr.message}`);
+  return;
+}
+
 if (!res.ok) {
-  document.getElementById('list-panel').innerHTML =
-    `<div class="state"><h3>加载失败 (${res.status})</h3><p style="font-size:11px;word-break:break-all;max-width:400px;margin:0 auto">${raw}</p></div>`;
+  showError(`HTTP ${res.status}: ${raw}`);
   return;
 }
 
-const data = JSON.parse(raw);
-
-if (!Array.isArray(data) || data.length === 0) {
-  document.getElementById('list-panel').innerHTML =
-    `<div class="state"><h3>暂无数据</h3><p>表中没有记录，或 RLS 未开放 SELECT 权限</p></div>`;
+let data;
+try {
+  data = JSON.parse(raw);
+} catch(parseErr) {
+  showError(`JSON 解析失败，原始响应: ${raw.slice(0, 300)}`);
   return;
 }
 
-// Support both "alpha_label" (underscore) and "alpha-label" (hyphen)
+if (!Array.isArray(data)) {
+  showError(`返回格式异常: ${raw.slice(0, 300)}`);
+  return;
+}
+
+if (data.length === 0) {
+  showError('表中暂无记录（已连接成功，但没有数据）');
+  return;
+}
+
 allCafes = data.map(c => ({
   ...c,
   alpha_label: c['alpha_label'] || c['alpha-label'] || null,
@@ -496,8 +533,8 @@ allCafes.forEach(addMarker);
 ```
 
 } catch(err) {
-document.getElementById(‘list-panel’).innerHTML =
-`<div class="state"><h3>网络错误</h3><p>${err.message}</p></div>`;
+clearTimeout(timer);
+showError(`未知错误: ${err.message}`);
 }
 }
 

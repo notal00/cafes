@@ -297,7 +297,7 @@
       </div>
     </div>
 
-```
+
 <div class="main-grid">
   <div class="list-panel" id="list-panel">
     <div class="state">
@@ -319,7 +319,7 @@
     </div>
   </div>
 </div>
-```
+
 
   </div>
 
@@ -348,19 +348,19 @@ return r.json();
 }
 
 // ── Map ──────────────────────────────────────
-const dark = window.matchMedia(’(prefers-color-scheme: dark)’).matches;
-const accentColor = dark ? ‘#e05050’ : ‘#c0392b’;
-const bgColor     = dark ? ‘#0f0f0f’ : ‘#ffffff’;
+const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const accentColor = dark ? '#e05050' : '#c0392b';
+const bgColor     = dark ? '#0f0f0f' : '#ffffff';
 
-const map = L.map(‘map’, {
+const map = L.map('map', {
 center: [39.9042, 116.4074], zoom: 11,
 zoomControl: true, attributionControl: false,
 });
 L.tileLayer(
 dark
-? ‘https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png’
-: ‘https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png’,
-{ subdomains: ‘abcd’, maxZoom: 19 }
+? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+{ subdomains: 'abcd', maxZoom: 19 }
 ).addTo(map);
 
 const markers = {};
@@ -369,7 +369,7 @@ let activeId = null;
 function mkIcon(active) {
 const s = active ? 13 : 9;
 return L.divIcon({
-className: ‘’,
+className: '',
 html: `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${accentColor};border:2px solid ${bgColor};box-shadow:0 1px 4px rgba(0,0,0,.25);opacity:${active?1:.7};"></div>`,
 iconSize: [s,s], iconAnchor: [s/2,s/2],
 });
@@ -379,7 +379,7 @@ function addMarker(c) {
 if (!c.lat || !c.lng) return;
 const m = L.marker([c.lat, c.lng], { icon: mkIcon(false) }).addTo(map);
 m.bindPopup(`<div class="p-name">${c.name}</div> ${c.score != null ?`<div class="p-score">${c.score} / 5</div>`: ``} ${c.note ?`<div class="p-note">${c.note}</div>`: ''}`, { maxWidth: 200, closeButton: false });
-m.on(‘click’, () => highlightCard(c.id));
+m.on('click', () => highlightCard(c.id));
 markers[c.id] = { marker: m, cafe: c };
 }
 
@@ -395,13 +395,13 @@ markers[c.id].marker.setIcon(mkIcon(true));
 setTimeout(() => markers[c.id]?.marker.openPopup(), 850);
 }
 activeId = c.id;
-document.getElementById(‘map-foot’).innerHTML = `<div class="map-foot-dot"></div> <div> <div class="map-foot-name">${c.name}</div> ${c.location ?`<div class="map-foot-loc">${c.location}</div>` : ''} </div>`;
+document.getElementById('map-foot').innerHTML = `<div class="map-foot-dot"></div> <div> <div class="map-foot-name">${c.name}</div> ${c.location ?`<div class="map-foot-loc">${c.location}</div>` : ''} </div>`;
 }
 
 function highlightCard(id) {
-document.querySelectorAll(’.card’).forEach(el => el.classList.remove(‘active’));
+document.querySelectorAll('.card').forEach(el => el.classList.remove('active'));
 const el = document.querySelector(`.card[data-id="${id}"]`);
-if (el) { el.classList.add(‘active’); el.scrollIntoView({ behavior:‘smooth’, block:‘nearest’ }); }
+if (el) { el.classList.add('active'); el.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
 }
 
 // ── Render ───────────────────────────────────
@@ -411,11 +411,11 @@ function hasChinese(s) { return /[\u4e00-\u9fff]/.test(s); }
 
 function dotRow(score) {
 const n = Math.round(score||0);
-return Array.from({length:5},(_,i)=>`<div class="dot${i<n?' on':''}"></div>`).join(’’);
+return Array.from({length:5},(_,i)=>`<div class="dot${i<n?' on':''}"></div>`).join('');
 }
 
 function renderList(cafes) {
-const panel = document.getElementById(‘list-panel’);
+const panel = document.getElementById('list-panel');
 if (!cafes.length) {
 panel.innerHTML = `<div class="state"><h3>暂无结果</h3><p>换个关键词试试</p></div>`;
 return;
@@ -427,11 +427,11 @@ cafes.forEach(c => {
 const k = (c.alpha_label || (c.name||’?’)[0]).toUpperCase();
 (groups[k] = groups[k]||[]).push(c);
 });
-const keys = Object.keys(groups).sort((a,b) => a.localeCompare(b,‘en’));
+const keys = Object.keys(groups).sort((a,b) => a.localeCompare(b,'en'));
 
-let html = ‘’;
+let html = '';
 keys.forEach(k => {
-html += `<div class="alpha-section"><div class="alpha-label">${k}</div>`;
+html += `<div class="alpha-section"><div class="alpha_label">${k}</div>`;
 groups[k].forEach(c => {
 const zhName = hasChinese(c.name);
 html += `<div class="card" data-id="${c.id}" onclick="onCardClick('${c.id}')"> <div> <div class="card-name${zhName?' has-zh zh':''}">${c.name}</div> ${c.location ? `<div class="card-loc">
@@ -455,18 +455,18 @@ const c = allCafes.find(x => String(x.id) === String(id));
 if (c) flyTo(c);
 }
 
-document.getElementById(‘search’).addEventListener(‘input’, e => {
+document.getElementById('search').addEventListener('input', e => {
 const q = e.target.value.trim().toLowerCase();
 renderList(q ? allCafes.filter(c =>
-(c.name||’’).toLowerCase().includes(q) ||
-(c.location||’’).toLowerCase().includes(q) ||
-(c.note||’’).toLowerCase().includes(q)
+(c.name||'').toLowerCase().includes(q) ||
+(c.location||'').toLowerCase().includes(q) ||
+(c.note||'').toLowerCase().includes(q)
 ) : allCafes);
 });
 
 // ── Init ─────────────────────────────────────
 function showError(msg) {
-document.getElementById(‘list-panel’).innerHTML =
+document.getElementById('list-panel').innerHTML =
 `<div class="state"><h3>出错了</h3><p style="font-size:11px;word-break:break-all;max-width:400px;margin:6px auto 0">${msg}</p></div>`;
 }
 
@@ -524,7 +524,7 @@ if (data.length === 0) {
 
 allCafes = data.map(c => ({
   ...c,
-  alpha_label: c['alpha_label'] || c['alpha-label'] || null,
+  alpha_label: c['alpha_label'] || c['alpha_label'] || null,
 }));
 
 document.getElementById('count-pill').textContent = `${allCafes.length} 家`;

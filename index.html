@@ -333,212 +333,142 @@
 
 </div>
 <script>
-// ── Supabase config ──────────────────────────
+// ── 1. 配置信息 (确保全是直引号) ──────────────────────
 const SUPABASE_URL  = 'https://zkpctzxyqpiiqxvnmauo.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InprcGN0enh5cXBpaXF4dm5tYXVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzNDkxNDAsImV4cCI6MjA5MDkyNTE0MH0.Z7WdneCs_vJOblWho1neuMLI86h1FrdNqi6N2-DI4ZQ';
 const TABLE_NAME    = 'cafes';
 
-async function fetchCafes() {
-const r = await fetch(
-`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc`,
-{ headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` } }
-);
-if (!r.ok) throw new Error(`HTTP ${r.status}`);
-return r.json();
-}
+// ── 2. 地图初始化 ──────────────────────────────────
+const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+const accentColor = isDark ? '#e05050' : '#c0392b';
+const bgColor = isDark ? '#0f0f0f' : '#ffffff';
 
-// ── Map ──────────────────────────────────────
-const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-const accentColor = dark ? '#e05050' : '#c0392b';
-const bgColor     = dark ? '#0f0f0f' : '#ffffff';
-
-const map = L.map('map', {
-center: [39.9042, 116.4074], zoom: 11,
-zoomControl: true, attributionControl: false,
-});
-L.tileLayer(
-dark
-? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-{ subdomains: 'abcd', maxZoom: 19 }
+const map = L.map('map', { center: [39.9042, 116.4074], zoom: 11, attributionControl: false });
+L.tileLayer(isDark 
+  ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
+  : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
 ).addTo(map);
 
 const markers = {};
 let activeId = null;
-
-function mkIcon(active) {
-const s = active ? 13 : 9;
-return L.divIcon({
-className: '',
-html: `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${accentColor};border:2px solid ${bgColor};box-shadow:0 1px 4px rgba(0,0,0,.25);opacity:${active?1:.7};"></div>`,
-iconSize: [s,s], iconAnchor: [s/2,s/2],
-});
-}
-
-function addMarker(c) {
-if (!c.lat || !c.lng) return;
-const m = L.marker([c.lat, c.lng], { icon: mkIcon(false) }).addTo(map);
-m.bindPopup(`<div class="p-name">${c.name}</div> ${c.score != null ?`<div class="p-score">${c.score} / 5</div>`: ``} ${c.note ?`<div class="p-note">${c.note}</div>`: ''}`, { maxWidth: 200, closeButton: false });
-m.on('click', () => highlightCard(c.id));
-markers[c.id] = { marker: m, cafe: c };
-}
-
-function flyTo(c) {
-if (!c.lat || !c.lng) return;
-map.flyTo([c.lat, c.lng], 15, { duration: .85 });
-if (activeId != null && markers[activeId]) {
-markers[activeId].marker.setIcon(mkIcon(false));
-markers[activeId].marker.closePopup();
-}
-if (markers[c.id]) {
-markers[c.id].marker.setIcon(mkIcon(true));
-setTimeout(() => markers[c.id]?.marker.openPopup(), 850);
-}
-activeId = c.id;
-document.getElementById('map-foot').innerHTML = `<div class="map-foot-dot"></div> <div> <div class="map-foot-name">${c.name}</div> ${c.location ?`<div class="map-foot-loc">${c.location}</div>` : ''} </div>`;
-}
-
-function highlightCard(id) {
-document.querySelectorAll('.card').forEach(el => el.classList.remove('active'));
-const el = document.querySelector(`.card[data-id="${id}"]`);
-if (el) { el.classList.add('active'); el.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
-}
-
-// ── Render ───────────────────────────────────
 let allCafes = [];
 
-function hasChinese(s) { return /[\u4e00-\u9fff]/.test(s); }
+// ── 3. 核心功能函数 ────────────────────────────────
+function mkIcon(active) {
+  const s = active ? 13 : 9;
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${accentColor};border:2px solid ${bgColor};box-shadow:0 1px 4px rgba(0,0,0,.25);"></div>`,
+    iconSize: [s, s], iconAnchor: [s/2, s/2]
+  });
+}
 
 function dotRow(score) {
-const n = Math.round(score||0);
-return Array.from({length:5},(_,i)=>`<div class="dot${i<n?' on':''}"></div>`).join('');
+  // 5分制逻辑：直接取整
+  const n = Math.round(score || 0);
+  return Array.from({length: 5}, (_, i) => `<div class="dot${i < n ? ' on' : ''}"></div>`).join('');
+}
+
+function showError(msg) {
+  const panel = document.getElementById('list-panel');
+  if (panel) panel.innerHTML = `<div class="state"><h3>出错了</h3><p style="font-size:11px;">${msg}</p></div>`;
+}
+
+// ── 4. 渲染与交互 ──────────────────────────────────
+function addMarker(c) {
+  if (!c.lat || !c.lng) return;
+  const m = L.marker([c.lat, c.lng], { icon: mkIcon(false) }).addTo(map);
+  m.bindPopup(`<div class="p-name zh">${c.name}</div>${c.score != null ? `<div class="p-score">${c.score} / 5</div>` : ''}`, { closeButton: false });
+  m.on('click', () => onCardClick(c.id));
+  markers[c.id] = m;
 }
 
 function renderList(cafes) {
-const panel = document.getElementById('list-panel');
-if (!cafes.length) {
-panel.innerHTML = `<div class="state"><h3>暂无结果</h3><p>换个关键词试试</p></div>`;
-return;
-}
-
-// Group by alpha_label field if present, else first char of name
-const groups = {};
-cafes.forEach(c => {
-const k = (c.alpha_label || (c.name||'?')[0]).toUpperCase();
-(groups[k] = groups[k]||[]).push(c);
-});
-const keys = Object.keys(groups).sort((a,b) => a.localeCompare(b,'en'));
-
-let html = '';
-keys.forEach(k => {
-html += `<div class="alpha-section"><div class="alpha_label">${k}</div>`;
-groups[k].forEach(c => {
-const zhName = hasChinese(c.name);
-html += `<div class="card" data-id="${c.id}" onclick="onCardClick('${c.id}')"> <div> <div class="card-name${zhName?' has-zh zh':''}">${c.name}</div> ${c.location ? `<div class="card-loc">
-<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-<circle cx="12" cy="9" r="2.5"/>
-</svg>${c.location}
-</div>`: ''} ${c.note ?`<div class="card-note">${c.note}</div>`: ''} </div> ${c.score != null ?`<div class="card-right">
-<div class="score-val">${c.score}<sub>/5</sub></div>
-<div class="dots">${dotRow(c.score)}</div>
-</div>` : ''} </div>`;
-});
-html += `</div>`;
-});
-panel.innerHTML = html;
+  const panel = document.getElementById('list-panel');
+  if (!cafes.length) {
+    panel.innerHTML = '<div class="state"><h3>暂无结果</h3></div>';
+    return;
+  }
+  const groups = {};
+  cafes.forEach(c => {
+    const k = (c.alpha_label || c.name[0] || '?').toUpperCase();
+    if (!groups[k]) groups[k] = [];
+    groups[k].push(c);
+  });
+  const keys = Object.keys(groups).sort();
+  
+  panel.innerHTML = keys.map(k => `
+    <div class="alpha-section">
+      <div class="alpha-label">${k}</div>
+      ${groups[k].map(c => `
+        <div class="card" data-id="${c.id}" onclick="onCardClick('${c.id}')">
+          <div>
+            <div class="card-name zh">${c.name}</div>
+            <div class="card-loc zh">${c.location || ''}</div>
+            <div class="card-note zh">${c.note || ''}</div>
+          </div>
+          <div class="card-right">
+            <div class="score-val">${c.score || 0}<sub>/5</sub></div>
+            <div class="dots">${dotRow(c.score)}</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
 }
 
 function onCardClick(id) {
-highlightCard(id);
-const c = allCafes.find(x => String(x.id) === String(id));
-if (c) flyTo(c);
+  const c = allCafes.find(x => String(x.id) === String(id));
+  if (!c) return;
+  document.querySelectorAll('.card').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.card[data-id="${id}"]`);
+  if (el) {
+    el.classList.add('active');
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  if (c.lat && c.lng) {
+    map.flyTo([c.lat, c.lng], 15);
+    if (activeId && markers[activeId]) markers[activeId].setIcon(mkIcon(false));
+    if (markers[id]) {
+      markers[id].setIcon(mkIcon(true));
+      markers[id].openPopup();
+    }
+    activeId = id;
+    document.getElementById('map-foot').innerHTML = `<div class="zh"><strong>${c.name}</strong><br><small>${c.location || ''}</small></div>`;
+  }
+}
+
+// ── 5. 数据初始化 ──────────────────────────────────
+async function init() {
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc`;
+    const res = await fetch(url, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` }
+    });
+
+    if (!res.ok) throw new Error('网络请求失败');
+    
+    const data = await res.json();
+    allCafes = data;
+    document.getElementById('count-pill').textContent = `${allCafes.length} 家`;
+    renderList(allCafes);
+    allCafes.forEach(addMarker);
+  } catch (err) {
+    showError(err.message);
+  }
 }
 
 document.getElementById('search').addEventListener('input', e => {
-const q = e.target.value.trim().toLowerCase();
-renderList(q ? allCafes.filter(c =>
-(c.name||'').toLowerCase().includes(q) ||
-(c.location||'').toLowerCase().includes(q) ||
-(c.note||'').toLowerCase().includes(q)
-) : allCafes);
+  const q = e.target.value.toLowerCase();
+  renderList(allCafes.filter(c => c.name.toLowerCase().includes(q) || (c.location || '').toLowerCase().includes(q)));
 });
-
-// ── Init ─────────────────────────────────────
-function showError(msg) {
-document.getElementById('list-panel').innerHTML =
-`<div class="state"><h3>出错了</h3><p style="font-size:11px;word-break:break-all;max-width:400px;margin:6px auto 0">${msg}</p></div>`;
-}
-
-async function init() {
-// 8 second timeout
-const controller = new AbortController();
-const timer = setTimeout(() => controller.abort(), 8000);
-
-try {
-const url = `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=name.asc&apikey=${SUPABASE_ANON}`;
-let res;
-try {
-res = await fetch(url, {
-signal: controller.signal,
-headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${SUPABASE_ANON}` }
-});
-} catch(fetchErr) {
-showError(`fetch 失败: ${fetchErr.message}`);
-return;
-} finally {
-clearTimeout(timer);
-}
-
-```
-let raw;
-try {
-  raw = await res.text();
-} catch(textErr) {
-  showError(`读取响应失败: ${textErr.message}`);
-  return;
-}
-
-if (!res.ok) {
-  showError(`HTTP ${res.status}: ${raw}`);
-  return;
-}
-
-let data;
-try {
-  data = JSON.parse(raw);
-} catch(parseErr) {
-  showError(`JSON 解析失败，原始响应: ${raw.slice(0, 300)}`);
-  return;
-}
-
-if (!Array.isArray(data)) {
-  showError(`返回格式异常: ${raw.slice(0, 300)}`);
-  return;
-}
-
-if (data.length === 0) {
-  showError('表中暂无记录（已连接成功，但没有数据）');
-  return;
-}
-
-allCafes = data.map(c => ({
-  ...c,
-  alpha_label: c['alpha_label'] || c['alpha_label'] || null,
-}));
-
-document.getElementById('count-pill').textContent = `${allCafes.length} 家`;
-renderList(allCafes);
-allCafes.forEach(addMarker);
-```
-
-} catch(err) {
-clearTimeout(timer);
-showError(`未知错误: ${err.message}`);
-}
-}
 
 init();
+
+
+
+
+  
 </script>
 
 </body>

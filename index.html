@@ -424,7 +424,7 @@ return;
 // Group by alpha_label field if present, else first char of name
 const groups = {};
 cafes.forEach(c => {
-const k = (c.alpha_label || (c.name||’?’)[0]).toUpperCase();
+const k = (c.alpha_label || (c.name||'?')[0]).toUpperCase();
 (groups[k] = groups[k]||[]).push(c);
 });
 const keys = Object.keys(groups).sort((a,b) => a.localeCompare(b,'en'));
